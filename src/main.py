@@ -1,14 +1,16 @@
 import cv2
 import os
 import argparse
-import random
 
+from datetime import datetime
 from tqdm import tqdm
 from deeplab_v3 import DeepLabV3
 
 DEFAULT_BACKGROUND_COLOR = (255, 255, 255)
 OUTPUT_IMG_FORMAT = ".png"
 OUTPUT_VIDEO_FORMAT = ".avi"
+OUTPUT_CV2_FOURCC = cv2.VideoWriter_fourcc(* 'XVID')
+OUTPUT_FILE_NAME_FORMAT = "{}_{}_{}{}"  # origin_name/background/time/ext
 
 
 def _parse_args():
@@ -16,16 +18,16 @@ def _parse_args():
     parser.add_argument("--model-type", type=str, default="deeplab_v3")
     parser.add_argument("--ckpt-path", type=str,
                         default="/ssd4/zhangyiyang/background-removal/data/deeplab_v3/xception_model")
-    parser.add_argument("--gpu_devices", type=str, default="3")
+    parser.add_argument("--gpu-devices", type=str, default="0")
 
     parser.add_argument("--background-image-path", type=str,
-                        default="/ssd4/zhangyiyang/background-removal/data/input/background/images/2.jpg")
+                        default=None)
     parser.add_argument("--background-images-dir", type=str,
                         default=None)
     parser.add_argument("--background-video-path", type=str,
-                        default="/ssd4/zhangyiyang/background-removal/data/input/background/videos/background-long.mp4")
-    parser.add_argument("--background-videos-dir", type=str,
                         default=None)
+    parser.add_argument("--background-videos-dir", type=str,
+                        default="/ssd4/zhangyiyang/data/AR/generate_videos/background/results")
 
     parser.add_argument("--foreground-image-path", type=str,
                         default="/ssd4/zhangyiyang/background-removal/data/input/foreground/images/1.jpg")
@@ -34,10 +36,10 @@ def _parse_args():
     parser.add_argument("--foreground-video-path", type=str,
                         default="/ssd4/zhangyiyang/background-removal/data/input/foreground/videos/foreground.mp4")
     parser.add_argument("--foreground-videos-dir", type=str,
-                        default=None)
+                        default="/ssd4/zhangyiyang/data/AR/generate_videos/foreground/left")
 
     parser.add_argument("--output-dir", type=str,
-                        default="/ssd4/zhangyiyang/background-removal/data/output")
+                        default="/ssd4/zhangyiyang/data/AR/generate_videos/results/left")
 
     return parser.parse_args()
 
@@ -58,12 +60,11 @@ def _video_generate(model,
     video_height = int(in_video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     target_size = model.set_target_size((video_height, video_width))
 
-    fourcc = cv2.VideoWriter_fourcc(* 'XVID')
     if os.path.exists(out_video_path):
         os.remove(out_video_path)
     output_video_writer = cv2.VideoWriter(
         out_video_path,
-        fourcc,
+        OUTPUT_CV2_FOURCC,
         in_video_cap.get(cv2.CAP_PROP_FPS),
         (target_size[0], target_size[1]),
     )
@@ -101,43 +102,23 @@ def _video_generate(model,
         background_video_cap.release()
 
 
-def _handle_single_foreground_video(video_path, model, args):
-    # method string
-    method_str = "_color"
-
-    # get background data
-    background_image = None
-    background_video_cap = None
-    if args.background_videos_dir is not None:
-        filenames = os.listdir(args.background_videos_dir)
-        filename = filenames[random.randint(0, len(filenames) - 1)]
-        background_video_cap = cv2.VideoCapture(
-            os.path.join(args.background_videos_dir), filename
-        )
-        method_str = "_videos_dir"
-    elif args.background_video_path is not None:
-        background_video_cap = cv2.VideoCapture(args.background_video_path)
-        method_str = "_video"
-    elif args.background_images_dir is not None:
-        filenames = os.listdir(args.background_videos_dir)
-        filename = filenames[random.randint(0, len(filenames) - 1)]
-        background_image = cv2.imread(
-            os.path.join(args.background_images_dir, filename)
-        )
-        method_str = "_images_dir"
-    elif args.background_image_path is not None:
-        background_image = cv2.imread(args.background_image_path)
-        method_str = "_image"
-
+def _do_handle_single_video(video_path, model,
+                            background_type, background_image,
+                            background_video_cap,
+                            output_dir,):
     # get output image file name & absolute path
     full_basename = os.path.basename(video_path)
     basename, ext = os.path.splitext(full_basename)
-    output_file_path = os.path.join(
-        args.output_dir, basename + method_str + OUTPUT_VIDEO_FORMAT
+    file_name = OUTPUT_FILE_NAME_FORMAT.format(
+        basename, background_type,
+        int(datetime.now().timestamp()*10e6),
+        OUTPUT_VIDEO_FORMAT,
     )
+    # file_name = basename + background_type + OUTPUT_VIDEO_FORMAT
+    output_file_path = os.path.join(output_dir, file_name)
 
     # generate videos
-    tmp_video = './tmp.avi'
+    tmp_video = './tmp1.avi'
     cmd = "ffmpeg -i {} -q:v 6 {}".format(video_path, tmp_video)
     if os.path.exists(tmp_video):
         os.remove(tmp_video)
@@ -152,23 +133,54 @@ def _handle_single_foreground_video(video_path, model, args):
         os.remove(tmp_video)
 
 
-def _handle_single_foreground_image(img_path, model, args):
+def _handle_single_foreground_video(video_path, model, args):
+    if args.background_videos_dir is not None:
+        background_type = "videos_dir"
+        background_image = None
+        for file_name in os.listdir(args.background_videos_dir):
+            background_video_cap = cv2.VideoCapture(os.path.join(
+                args.background_videos_dir, file_name,
+            ))
+            _do_handle_single_video(video_path, model,
+                                    background_type, background_image,
+                                    background_video_cap,
+                                    args.output_dir)
+        return
+
+    if args.background_images_dir is not None:
+        background_type = "images_dir"
+        background_video_cap = None
+        for file_name in os.listdir(args.background_videos_dir):
+            background_image = cv2.imread(
+                os.path.join(args.background_images_dir, file_name)
+            )
+            _do_handle_single_video(video_path, model,
+                                    background_type, background_image,
+                                    background_video_cap,
+                                    args.output_dir)
+        return
+
+    background_type = "color"
+    background_image = None
+    background_video_cap = None
+    if args.background_video_path is not None:
+        background_video_cap = cv2.VideoCapture(args.background_video_path)
+        background_type = "video"
+    elif args.background_image_path is not None:
+        background_image = cv2.imread(args.background_image_path)
+        background_type = "image"
+
+    _do_handle_single_video(video_path, model,
+                            background_type, background_image,
+                            background_video_cap,
+                            args.output_dir)
+
+
+def _do_handle_single_image(img_path, model,
+                            background_type, background,
+                            output_dir):
     # get foreground image
     foreground = cv2.imread(img_path)
-
-    # get background image
-    method_str = "_color"
-    background = None
-    if args.background_images_dir is not None:
-        filenames = os.listdir(args.background_image_dir)
-        filename = filenames[random.randint(0, len(filenames) - 1)]
-        background = cv2.imread(os.path.join(
-            args.background_images_dir, filename
-        ))
-        method_str = "_images_dir"
-    elif args.background_image_path is not None:
-        background = cv2.imread(args.background_image_path)
-        method_str = "_image"
 
     # generate target image
     target_img = model.generate_image(
@@ -180,12 +192,41 @@ def _handle_single_foreground_image(img_path, model, args):
     # get output image file name & absolute path
     full_basename = os.path.basename(img_path)
     basename, ext = os.path.splitext(full_basename)
-    output_file_path = os.path.join(
-        args.output_dir, basename + method_str + OUTPUT_IMG_FORMAT
+    file_name = OUTPUT_FILE_NAME_FORMAT.format(
+        basename, background_type,
+        int(datetime.now().timestamp()*10e6),
+        OUTPUT_IMG_FORMAT,
     )
+    # file_name = basename + background_type + OUTPUT_IMG_FORMAT
+    output_file_path = os.path.join(output_dir, file_name)
 
     # write image
     cv2.imwrite(output_file_path, target_img)
+
+
+def _handle_single_foreground_image(img_path, model, args):
+    # 多张图片处理
+    if args.background_images_dir is not None:
+        background_type = "images_dir"
+        for filename in os.listdir(args.background_image_dir):
+            background = cv2.imread(os.path.join(
+                args.background_images_dir, filename
+            ))
+            _do_handle_single_image(
+                img_path, model, background_type, background, args.output_dir,
+            )
+        return
+
+    # 处理单张图片
+    if args.background_image_path is not None:
+        background = cv2.imread(args.background_image_path)
+        background_type = "image"
+    else:
+        background_type = "color"
+        background = None
+    _do_handle_single_image(
+        img_path, model, background_type, background, args.output_dir,
+    )
 
 
 def main(args):
