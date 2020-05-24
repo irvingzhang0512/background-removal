@@ -1,0 +1,17 @@
+ffmpeg -i ./data/input/raw/zyy_5_23.mp4 ^
+    -ss 1 -to 3.3 zyy_5_23-left-1.mp4 ^
+    -ss 4.4 -to 5.8 zyy_5_23-left-2.mp4 ^
+    -ss 6.9 -to 9 zyy_5_23-left-3.mp4 ^
+    -ss 9.9 -to 11.4 zyy_5_23-left-4.mp4 ^
+    -ss 12.3 -to 14.1 zyy_5_23-right-1.mp4 ^
+    -ss 14.8 -to 16.3 zyy_5_23-right-2.mp4 ^
+    -ss 17.2 -to 18.8 zyy_5_23-right-3.mp4 ^
+    -ss 19.7 -to 21.3 zyy_5_23-right-4.mp4 ^
+    -ss 22.2 -to 24.3 zyy_5_23-left-5.mp4 ^
+    -ss 25.0 -to 26.8 zyy_5_23-left-6.mp4 ^
+    -ss 27.7 -to 29.4 zyy_5_23-left-7.mp4 ^
+    -ss 30.0 -to 31.8 zyy_5_23-left-8.mp4 ^
+    -ss 32.5 -to 34.4 zyy_5_23-right-5.mp4 ^
+    -ss 35.0 -to 36.9 zyy_5_23-right-6.mp4 ^
+    -ss 37.6 -to 39.4 zyy_5_23-right-7.mp4 ^
+    -ss 40.2 -to 41.6 zyy_5_23-right-8.mp4

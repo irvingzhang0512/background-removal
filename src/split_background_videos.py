@@ -19,15 +19,14 @@ def _parse_args():
                         default="/ssd4/zhangyiyang/data/AR/generate_videos/background/raw/unused")
     parser.add_argument("--output-videos-dir", type=str,
                         default="/ssd4/zhangyiyang/data/AR/generate_videos/background/results")
-    parser.add_argument("--start-id", type=int, default=71)
-    parser.add_argument("--seconds-per-sample", type=int, default=5)
+    parser.add_argument("--seconds-per-sample", type=int, default=3)
 
     return parser.parse_args()
 
 
 def _handle_single_video(file_name, args):
     if not file_name.endswith(SUPPORTED_VIDEO_EXTS):
-        print("Un supported video file {}".format(file_name))
+        print("Unsupported video file {}".format(file_name))
         return
     global file_idx
     video_path = os.path.join(args.input_videos_dir, file_name)
@@ -54,6 +53,17 @@ def _handle_single_video(file_name, args):
     os.system(cmd.replace("\\", "").replace("\n", ""))
 
 
+def _get_start_id(cur_dir):
+    max_id = 0
+    for file_name in os.listdir(cur_dir):
+        try:
+            idx = int(file_name)
+            max_id = max(idx, max_id)
+        except:
+            pass
+    return max_id + 1
+
+
 def main(args):
     if not os.path.exists(args.output_videos_dir):
         os.makedirs(args.output_videos_dir)
@@ -62,7 +72,7 @@ def main(args):
         raise ValueError("unknown input/output videos dir {}/{}".format(
             args.input_videos_dir, args.output_videos_dir))
     global file_idx
-    file_idx = args.start_id
+    file_idx = _get_start_id(args.output_videos_dir)
     for file_name in os.listdir(args.input_videos_dir):
         _handle_single_video(file_name, args)
 

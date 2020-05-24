@@ -33,7 +33,7 @@ class DeepLabV3(object):
         self.sess = tf.Session(graph=self.graph, config=tf_config)
         self.target_size = self.set_target_size(img_size)
 
-    def _get_mask(self, image):
+    def _get_mask(self, image, history_mask=None):
         """Runs inference on a single image.
         Args:
           image: A cv2.image object, raw input image.
@@ -50,11 +50,14 @@ class DeepLabV3(object):
             target_size = self.target_size
         image = image[:, :, ::-1]
         resized_image = cv2.resize(image, target_size)
-        batch_seg_map = self.sess.run(
-            self.OUTPUT_TENSOR_NAME,
-            feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})
+        if history_mask is not None:
+            cur_mask = history_mask
+        else:
+            cur_mask = self.sess.run(
+                self.OUTPUT_TENSOR_NAME,
+                feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})[0]
 
-        return resized_image[:, :, ::-1], batch_seg_map[0]
+        return resized_image[:, :, ::-1], cur_mask
 
     def set_target_size(self, input_size):
         if input_size is None:
@@ -86,8 +89,9 @@ class DeepLabV3(object):
 
     def generate_image(self, image,
                        background=None,
-                       background_color=(255, 255, 255)):
-        foregroud, mask = self._get_mask(image)
+                       background_color=(255, 255, 255),
+                       mask=None):
+        foregroud, mask = self._get_mask(image, mask)
         new_img = self._draw_image(foregroud, mask,
-                                   background, background_color)
-        return new_img
+                                   background, background_color,)
+        return new_img, mask
