@@ -55,7 +55,9 @@ class DeepLabV3(object):
         else:
             cur_mask = self.sess.run(
                 self.OUTPUT_TENSOR_NAME,
-                feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})[0]
+                feed_dict={self.INPUT_TENSOR_NAME:
+                           [np.asarray(resized_image)]}
+            )[0]
 
         return resized_image[:, :, ::-1], cur_mask
 
@@ -68,9 +70,9 @@ class DeepLabV3(object):
                             int(resize_ratio*height))
         return self.target_size
 
-    def _draw_image(self,
-                    foreground, mask,
-                    background=None, background_color=(255, 255, 255)):
+    def draw_image(self,
+                   foreground, mask,
+                   background=None, background_color=(255, 255, 255)):
         height, width = foreground.shape[:2]
         if background is not None:
             background = cv2.resize(
@@ -91,7 +93,7 @@ class DeepLabV3(object):
                        background=None,
                        background_color=(255, 255, 255),
                        mask=None):
-        foregroud, mask = self._get_mask(image, mask)
-        new_img = self._draw_image(foregroud, mask,
-                                   background, background_color,)
-        return new_img, mask
+        foreground, mask = self._get_mask(image, mask)
+        new_img = self.draw_image(foreground, mask,
+                                  background, background_color,)
+        return foreground, mask, new_img

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 SUPPORTED_VIDEO_EXTS = (".avi", ".mp4")
 FFMPEG_COMMAND_STARTER = "ffmpeg -i {} "
-FFMPEG_COMMAND_ADD_LINE = "\\ \n -ss {} -t {} {} "
+FFMPEG_COMMAND_ADD_LINE = " -ss {} -t {} {} "
 OUTPUT_FILE_FORMAT = "{}.avi"
 DATETIME_FORMAT = "%H:%M:%S"
 
@@ -16,9 +16,9 @@ def _parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--input-videos-dir", type=str,
-                        default="/ssd4/zhangyiyang/data/AR/generate_videos/background/raw/unused")
+                        default="./data/input/bg0523")
     parser.add_argument("--output-videos-dir", type=str,
-                        default="/ssd4/zhangyiyang/data/AR/generate_videos/background/results")
+                        default="./data/input/bgclips0523")
     parser.add_argument("--seconds-per-sample", type=int, default=3)
 
     return parser.parse_args()
@@ -28,6 +28,10 @@ def _handle_single_video(file_name, args):
     if not file_name.endswith(SUPPORTED_VIDEO_EXTS):
         print("Unsupported video file {}".format(file_name))
         return
+
+    if not os.path.exists(args.output_videos_dir):
+        os.makedirs(args.output_videos_dir)
+
     global file_idx
     video_path = os.path.join(args.input_videos_dir, file_name)
     cap = cv2.VideoCapture(video_path)
@@ -50,7 +54,7 @@ def _handle_single_video(file_name, args):
         s += args.seconds_per_sample
 
     print(cmd)
-    os.system(cmd.replace("\\", "").replace("\n", ""))
+    os.system(cmd)
 
 
 def _get_start_id(cur_dir):
